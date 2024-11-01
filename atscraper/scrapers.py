@@ -55,7 +55,7 @@ class AutoTraderScraper:
                         "owners": None,
                         "location": None,
                         "distance": None,
-                        "link": "https://www.autotrader.co.uk/" + article.find(
+                        "link": "https://www.autotrader.co.uk" + article.find(
                             "a", {"href": re.compile(r'/car-details/')}
                         ).get("href")
                     }
