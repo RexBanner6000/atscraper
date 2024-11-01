@@ -17,7 +17,7 @@ class AutoTraderScraper:
         chrome_options.add_argument("_tt_enable_cookie=1")
         self.driver = webdriver.Chrome()
         self.base_url = "https://www.autotrader.co.uk/car-search?postcode=PO7%203AP&make={make}&model={model}&advertising-location=at_cars"
-        self.wait = 3
+        self.wait = 2
 
     def scrape(self) -> pd.DataFrame:
         data = []
@@ -44,16 +44,20 @@ class AutoTraderScraper:
                 for article in articles:
                     details = {
                         "name": make + " " + model,
-                        "price": re.search(r"[£]\d+(\,\d{3})?", article.text).group(0),
+                        "price": int(re.search(r"(?:[£](\d+(\,\d{3})?))", article.text).group(1).replace(",","")),
                         "year": None,
+                        "reg": None,
                         "mileage": None,
+                        "body_type": None,
                         "transmission": None,
                         "fuel": None,
                         "engine": None,
                         "owners": None,
                         "location": None,
                         "distance": None,
-                        "link": article.find("a", {"href": re.compile(r'/car-details/')}).get("href")
+                        "link": "https://www.autotrader.co.uk/" + article.find(
+                            "a", {"href": re.compile(r'/car-details/')}
+                        ).get("href")
                     }
 
                     try:
@@ -68,13 +72,17 @@ class AutoTraderScraper:
                     if specs_list:
                         for spec in specs_list:
                             if "reg" in spec.text:
-                                details["year"] = spec.text
+                                details["year"] = re.search(r"\d{4}", spec.text).group(0)
+                                details["reg"] = re.search(r"(?:\((\d\d) reg\))", spec.text).group(1)
 
                             if "miles" in spec.text:
-                                details["mileage"] = spec.text
+                                details["mileage"] = re.search(r"(?:(\d+(\,\d{3})?) miles)", spec.text).group(1).replace(",","")
 
                             if spec.text in ["Manual", "Automatic"]:
                                 details["transmission"] = spec.text
+
+                            if spec.text in ["Hatchback", "Estate"]:
+                                details["body_type"] = spec.text
 
                             if "." in spec.text and "L" in spec.text:
                                 details["engine"] = spec.text
@@ -86,8 +94,6 @@ class AutoTraderScraper:
                                 details["owners"] = spec.text[0]
 
                     data.append(details)
-                if i > 5:
-                    break
 
         return pd.DataFrame.from_dict(data)
 
@@ -95,4 +101,5 @@ class AutoTraderScraper:
 if __name__ == "__main__":
     scraper = AutoTraderScraper(cars={"Skoda": "Superb"})
     df = scraper.scrape()
+    df.to_csv("skoda_superb_autotrader.csv", index=False)
     print("Done!")
